@@ -1,138 +1,88 @@
-# @randajan/oauth2-client
+# @randajan/group-map
 
-[![NPM](https://img.shields.io/npm/v/@randajan/oauth2-client.svg)](https://www.npmjs.com/package/@randajan/oauth2-client) 
+[![NPM](https://img.shields.io/npm/v/@randajan/group-map.svg)](https://www.npmjs.com/package/@randajan/group-map) 
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
 
----
+# GroupMap
 
-## Overview
+> Lightweight two‑level `Map` — **group → key → value** — with a tiny, chainable API.
 
-**@randajan/oauth2-client** is a lightweight wrapper that streamlines OAuth 2.0 and service‑account authentication for Google APIs.  
-It hides the boilerplate around `google-auth-library`, keeps tokens fresh and lets you focus on writing business logic instead of wiring endpoint plumbing.
+## Features
+- Constant‑time lookup using `[groupId, keyId]`.
+- Automatically creates and removes group sub‑maps.
+- Chainable `.set()` just like native `Map`.
+- Iterator over every `[groupId, keyId, value]` triple.
+- Works in Node.js (CJS & ESM) **and** the browser.
+- Zero dependencies, ~0.4 kB min + gzip.
 
-This library meticulously supervises the entire redirect flow, intercepts every error, and relays it to the front-end, ensuring the browser is never stranded on a raw JSON API endpoint as can happen with other solutions.
+## Installation
 
-### ESM **&** CommonJS ready
-
-The package ships dual builds so you can **import** or **require** according to your tool‑chain:
-
-```js
-// ESM
-import { GoogleOAuth2 } from "@randajan/oauth2-client/google";
-
-// CommonJS
-const { GoogleOAuth2 } = require("@randajan/oauth2-client/google");
+```bash
+npm i super-map
+# or
+yarn add super-map
 ```
 
----
+## Quick Start
 
-## Quick start — minimal Express example
-
-```js
-import express from "express";
-import { GoogleOAuth2 } from "@randajan/oauth2-client/google";
-
-const google = new GoogleOAuth2({
-  clientId:          process.env.GOOGLE_CLIENT_ID,
-  clientSecret:      process.env.GOOGLE_CLIENT_SECRET,
-  redirectUri:       "http://localhost:3999/oauth/exit",     // common backend route
-  landingUri:        "http://localhost:3000",                // front‑end OK screen (default)
-  fallbackUri:       "http://localhost:3000/login/error",    // front‑end error screen
-  scopes:            ["drive"],                              // extra scopes
-  isOffline:         true,                                   // ask for refresh_token
-  onAuth: async (account, context) => {
-    // first time we see this user
-    console.log("new account", await account.uid());
-    // store tokens somewhere safe …
-  },
-  onRenew: async account => {
-    // Google issued fresh tokens
-    console.log("tokens renewed for", account);
-  },
-  extra:{
-    //will be passed to new google.auth.OAuth2(...)
-  }
-});
-
-const app = express();
-
-app.get("/oauth/init", (req, res) => {
-  const redirect = google.getInitAuthURL(req.query.landingUri);
-  res.redirect(redirect);
-});
-
-app.get("/oauth/exit", async (req, res) => {
-  const redirect = await google.getExitAuthURL(req.query.code, req.query.state);
-  res.redirect(redirect);           // back to front‑end
-});
-
-app.listen(3999);
-```
-
----
-
-## Shared `options`
-
-Every concrete OAuth2 client (Google, Microsoft …​) accepts the same constructor options so you can swap providers without refactoring:
-
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `clientId` | `string` | ✔︎ | OAuth client ID issued by the provider |
-| `clientSecret` | `string` | ✔︎ | OAuth client secret |
-| `redirectUri` | `string (URL)` | ✔︎ | Back‑end endpoint that receives `code` from the provider |
-| `fallbackUri` | `string (URL)` | ✔︎ | Where to send the user when *anything* goes wrong. Error errorCode & errorMessage are appended as query params |
-| `landingUri` | `string (URL)` |   | Default front‑end page after successful login (may be overridden per request) |
-| `scopes` | `string \| string[]` |   | Extra scopes. Google is always invoked with `openid userinfo.profile userinfo.email` |
-| `isOffline` | `boolean` |   | When `true` requests `access_type=offline` so a `refresh_token` is issued |
-| `onAuth` | `(account, { context, state, landingUri }) => Promise<string[] \| void>` | ✔︎ | Called once after new account is created. Return uri (string) for custom redirect |
-| `onRenew` | `(account) => void` | ✔︎ | Called whenever the access‑token is automatically refreshed |
-| `getCredentials` | `(userId)`=>object | Promise<object> | | Called inside oauth.account(...), all arguments will be passed. If this trait returns Promise oauth.account(...) will also return Promise.
-| `extra` | `object` |   | Arbitrary options forwarded to the underlying SDK |
-
----
-
-## Google client
-
-### Import path
+### ESM
 
 ```js
-import { GoogleOAuth2 } from "@randajan/oauth2-client/google";
+import { GroupMap } from 'super-map';
+
+const sm = new GroupMap();
+sm.set('users', 1,  { name: 'Alice' })
+  .set('users', 2,  { name: 'Bob'   })
+  .set('orders', 'A42', { total: 99 });
+
+console.log(sm.get('users', 1)); // → { name: 'Alice' }
 ```
 
-### Class **`GoogleOAuth2`**
-
-| Member | Returns | Description |
-|--------|---------|-------------|
-| `constructor(options)` | `GoogleOAuth2` | Creates a new client. See **options** above |
-| `getInitAuthURL({ landingUri?, scopes?, state?, extra? })` | `string` | Generates the consent‑screen URL. Parameters override the defaults from the constructor |
-| `getExitAuthURL({code, state}, context)` | `Promise<string>` | Exchanges `code` for tokens, triggers `onAuth`, then returns a redirect URL (either `landingUri` or a new **init** URL if more scopes are needed). Context will be passed as second argument to `onAuth` trait |
-| `account(credentials, ...args)` | `GoogleAccount` | Converts raw token `credentials` into a handy account object. getCredentials(credentials, ...args) trait will be used if was provided into the options |
-
-### Class **`GoogleAccount`**
-
-| Member | Returns | Description |
-|--------|---------|-------------|
-| **Property** `auth` | `google.auth.OAuth2` | *Raw* `google-auth-library` instance. Use it with any `googleapis` service |
-| `uid()` | `Promise<string>` | Returns a stable user‑id (`google:{userId}`) |
-| `profile()` | `Promise<google.oauth2#Userinfo>` | Shorthand for `GET /oauth2/v2/userinfo` |
-| `tokens()` | `Promise<{ access_token, refresh_token, expiry_date, … }>` | Current token set (auto‑refreshes if needed) |
-| `scopes()` | `Promise<string[]>` | Scopes granted to the current access_token |
-
----
-
-## Utility tool
-
-### `extendURL(url, query): string`
+### CommonJS
 
 ```js
-import { extendURL } from "@randajan/oauth2-client";
-extendURL("https://example.com", { foo: 1, bar: 2 });
-// → "https://example.com/?foo=1&bar=2"
+const { GroupMap } = require('super-map');
+
+const sm = new GroupMap();
+sm.set('posts', 101, { title: 'Hello' });
 ```
 
-A tiny helper that appends query parameters while keeping the rest of the URL intact.
+## API
 
----
+| Method | Description |
+| ------ | ----------- |
+| `keysOf(groupId)` | Iterator of `keyId` values within the group. |
+| `valuesOf(groupId)` | Iterator of stored values within the group. |
+| `getAll(groupId)` | Returns the inner `Map<keyId, value>` or `undefined`. |
+| `get(groupId, keyId)` | Returns a single value or `undefined`. |
+| `has(groupId, keyId)` | `true` if the pair exists. |
+| `set(groupId, keyId, value)` | Stores a value, returns `this`. |
+| `delete(groupId, keyId)` | Removes the entry; deletes the group when empty. |
+| `[Symbol.iterator]()` | Yields `[groupId, keyId, value]` for every entry. |
+
+_All other native **`Map`** methods (`size`, `forEach`, `entries`, ...) still work._
+
+### Iteration Example
+
+```js
+for (const [g, k, v] of sm) {
+  console.log(g, k, v);
+}
+```
+
+## TypeScript
+
+The JSDoc annotations give you intellisense out‑of‑the‑box.  
+For strict generics use the alternative definition in the docs:
+
+```ts
+class GroupMap<G, K, V> extends Map<G, Map<K, V>> { /* … */ }
+```
+
+## Build Notes
+
+This package ships both **ESM** and **CJS** builds with preserved
+`@preserve` comments (`esbuild --legal-comments=inline`).
 
 ## License
 
