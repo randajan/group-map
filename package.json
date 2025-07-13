@@ -1,0 +1,42 @@
+{
+  "name": "@randajan/group-map",
+  "version": "0.0.1",
+  "description": "Lightweight two-level Map — group → key → value — with a tiny, chainable API.",
+  "repository": "randajan/group-map",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.mjs",
+      "require": "./dist/cjs/index.cjs"
+    }
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@randajan/simple-lib": "^3.2.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "map",
+    "nested-map",
+    "dual-key",
+    "group-map",
+    "two-level-map",
+    "javascript",
+    "typescript"
+  ],
+  "homepage": "https://github.com/randajan/group-map",
+  "bugs": {
+    "url": "https://github.com/randajan/group-map/issues"
+  },
+  "author": {
+    "name": "Jan Randa",
+    "email": "jnranda@gmail.com",
+    "url": "https://www.linkedin.com/in/randajan/"
+  }
+}
