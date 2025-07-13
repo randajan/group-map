@@ -1,5 +1,4 @@
-import { GroupMap } from "./GroupMap";
+import { MapMap } from "./MapMap";
+import { MapSet } from "./MapSet";
 
-export { GroupMap }
-
-export default GroupMap;
+export { MapMap, MapSet }

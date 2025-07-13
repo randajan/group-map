@@ -1,13 +1,13 @@
 
 import { info, log } from "@randajan/simple-lib/web";
-import GroupMap from "../../dist/esm/index.mjs";
+import { MapSet } from "../../dist/esm/index.mjs";
 
-const sm = new GroupMap();
-sm.set('users', 1,  { name: 'Alice' })
-  .set('users', 2,  { name: 'Bob'   })
-  .set('orders', 'A42', { total: 99 });
+const sm = new MapSet();
+sm.set('users', 1)
+  .set('users', 2)
+  .set('orders', 'A42');
 
-console.log(sm.get('users', 1)); // → { name: 'Alice' }
+console.log(sm.get('users')); // → { name: 'Alice' }
 
 for (const [g, k, v] of sm) {
   console.log(g, k, v);

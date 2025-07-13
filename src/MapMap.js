@@ -15,7 +15,7 @@
  * //  orders A42 {…}
  * ```
  */
-export class GroupMap extends Map {
+export class MapMap extends Map {
 
   /**
    * Get an iterator over **keyIds** inside a given group.
