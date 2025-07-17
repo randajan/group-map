@@ -7,9 +7,17 @@
   "main": "dist/index.js",
   "module": "dist/index.js",
   "exports": {
-    ".": {
-      "import": "./dist/esm/index.mjs",
-      "require": "./dist/cjs/index.cjs"
+    "./map": {
+      "import": "./dist/esm/MapMap.mjs",
+      "require": "./dist/cjs/MapMap.cjs"
+    },
+    "./set": {
+      "import": "./dist/esm/MapSet.mjs",
+      "require": "./dist/cjs/MapSet.cjs"
+    },
+    "./array": {
+      "import": "./dist/esm/MapArray.mjs",
+      "require": "./dist/cjs/MapArray.cjs"
     }
   },
   "license": "MIT",

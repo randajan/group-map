@@ -1,117 +1,168 @@
 /**
- * A lightweight two-level `Map` (groupId → keyId → value).
- * Suitable when you need to organise items into named groups
- * but still want constant-time lookup with a pair of keys.
+ * Two‑level Map — group → key → value — enabling constant‑time lookup by
+ * `[groupId, keyId]`. Internally, values are stored in nested `Map` instances
+ * (`Map<groupId, Map<keyId, value>>`).
  *
- * ```js
- * const sm = new GroupMap();
- * sm.set("users",   1, { name: "Alice" });
- * sm.set("users",   2, { name: "Bob"   });
- * sm.set("orders", "A42", { total: 99 });
+ * @template G Type of the group identifier.
+ * @template K Type of the item identifier within the group.
+ * @template V Type of the stored value.
  *
- * for (const [g, k, v] of sm) console.log(g, k, v);
- * //→ users  1   {…}
- * //  users  2   {…}
- * //  orders A42 {…}
- * ```
+ * @extends {Map<G, Map<K, V>>}
  */
 export class MapMap extends Map {
-
-  /**
-   * Get an iterator over **keyIds** inside a given group.
-   * @param {*} groupId  The group identifier.
-   * @returns {IterableIterator<*> | undefined}  
-   *          Iterator of keyIds, or `undefined` if the group doesn’t exist.
-   */
-  keysOf(groupId) {
-    return super.get(groupId)?.keys();
-  }
-
-  /**
-   * Get an iterator over **values** inside a given group.
-   * @param {*} groupId  The group identifier.
-   * @returns {IterableIterator<*> | undefined}  
-   *          Iterator of values, or `undefined` if the group doesn’t exist.
-   */
-  valuesOf(groupId) {
-    return super.get(groupId)?.values();
-  }
-
-  /**
-   * Retrieve the entire sub-map for a group.
-   * @param {*} groupId  The group identifier.
-   * @returns {Map<*, *> | undefined}  
-   *          A `Map` of the group’s items, or `undefined` if the group doesn’t exist.
-   */
-  getAll(groupId) {
-    return super.get(groupId);
-  }
-
-  /**
-   * Retrieve a single value by **groupId** and **keyId**.
-   * @param {*} groupId  The group identifier.
-   * @param {*} keyId    The item identifier within the group.
-   * @returns {*} The stored value, or `undefined` if not found.
-   */
-  get(groupId, keyId) {
-    return super.get(groupId)?.get(keyId);
-  }
-
-  /**
-   * Check whether a value exists at **groupId / keyId**.
-   * @param {*} groupId  The group identifier.
-   * @param {*} keyId    The item identifier within the group.
-   * @returns {boolean}  `true` if present, otherwise `false`.
-   */
-  has(groupId, keyId) {
-    const sub = super.get(groupId);
-    return !!sub && sub.has(keyId);
-  }
-
-  /**
-   * Store a value at **groupId / keyId** (creates the group if needed).
-   * Chainable like the native `Map#set`.
-   * @param {*} groupId  The group identifier.
-   * @param {*} keyId    The item identifier within the group.
-   * @param {*} value    The value to store.
-   * @returns {GroupMap} The map instance, enabling chaining.
-   */
-  set(groupId, keyId, value) {
-    let sub = super.get(groupId);
-    if (!sub) super.set(groupId, (sub = new Map()));
-    sub.set(keyId, value);
-    return this;
-  }
-
-  /**
-   * Delete a value at **groupId / keyId**.  
-   * If the group becomes empty, the group itself is removed.
-   * @param {*} groupId  The group identifier.
-   * @param {*} keyId    The item identifier within the group.
-   * @returns {boolean}  `true` if something was deleted, otherwise `false`.
-   */
-  delete(groupId, keyId) {
-    const sub = super.get(groupId);
-    if (!sub) return false;
-
-    const deleted = sub.delete(keyId);
-    if (sub.size === 0) super.delete(groupId);
-    return deleted;
-  }
-
-  /**
-   * Iterate over every `[groupId, keyId, value]` triple in the map.
-   * Enables:
-   * ```js
-   * for (const [g, k, v] of GroupMap) { … }
-   * ```
-   * @returns {IterableIterator<[*, *, *]>}
-   */
-  *[Symbol.iterator]() {
-    for (const [groupId, sub] of super.entries()) {
-      for (const [keyId, value] of sub.entries()) {
-        yield [groupId, keyId, value];
-      }
+    /**
+     * Check whether the map contains **any** entry for the given group.
+     * Equivalent to the native `Map.prototype.has` on the outer map.
+     *
+     * @param {G} groupId
+     * @returns {boolean} `true` if the group exists.
+     */
+    has(groupId) {
+        return super.has(groupId);
     }
-  }
+
+    /**
+     * Check whether **[groupId, key]** exists in the map.
+     *
+     * @param {G} groupId
+     * @param {K} key
+     * @returns {boolean} `true` if a value is stored at that pair.
+     */
+    hasSub(groupId, key) {
+        return super.get(groupId)?.has(key);
+    }
+
+    /**
+     * Are **all** specified keys present in the given group?
+     *
+     * @param {G} groupId
+     * @param {...K} keys
+     * @returns {boolean}
+     */
+    hasAll(groupId, ...keys) {
+        const sub = super.get(groupId);
+        if (!sub) { return false; }
+        return keys.every(k => sub.has(k));
+    }
+
+    /**
+     * Does **any** of the provided keys exist in the given group?
+     *
+     * @param {G} groupId
+     * @param {...K} keys
+     * @returns {boolean}
+     */
+    hasAny(groupId, ...keys) {
+        const sub = super.get(groupId);
+        if (!sub) { return false; }
+        return keys.some(k => sub.has(k));
+    }
+
+    /**
+     * Retrieve the value stored at **[groupId, key]**.
+     *
+     * @param {G} groupId
+     * @param {K} key
+     * @returns {V | undefined}
+     */
+    get(groupId, key) {
+        return super.get(groupId)?.get(key);
+    }
+
+    /**
+     * Get the entire inner map for a group.
+     * **Be careful:** mutating the returned map also mutates this instance.
+     *
+     * @param {G} groupId
+     * @returns {Map<K, V> | undefined}
+     */
+    getAll(groupId) {
+        return super.get(groupId);
+    }
+
+    /**
+     * Store a value at **[groupId, key]**, creating the group if necessary.
+     * Chainable like the native `Map#set`.
+     *
+     * @param {G} groupId   The group identifier.
+     * @param {K} key       The item identifier within the group.
+     * @param {V} value     The value to store.
+     * @returns {MapMap<G, K, V>} Returns itself so calls can be chained.
+     */
+    set(groupId, key, value) {
+        let sub = super.get(groupId);
+        if (!sub) { super.set(groupId, (sub = new Map())); }
+        sub.set(key, value);
+        return this;
+    }
+
+    /**
+     * Delete one or more keys from a group. When the last key is removed,
+     * the entire group is dropped.
+     *
+     * @param {G} groupId
+     * @param {...K} keys  Which keys to delete inside the group.
+     * @returns {Map<K, V>} A map of removed items (`key → value`). Empty if
+     *                      nothing was deleted.
+     */
+    delete(groupId, ...keys) {
+        const out = new Map();
+        if (keys.length === 0) { return out; }
+
+        const sub = super.get(groupId);
+        if (!sub) { return out; }
+
+        for (const k of keys) {
+            if (!sub.has(k)) { continue; }
+            const v = sub.get(k);
+            sub.delete(k);
+            out.set(k, v);
+        }
+        if (sub.size === 0) { super.delete(groupId); }
+        return out;
+    }
+
+    /**
+     * Remove **all** keys in a given group and return them.
+     *
+     * @param {G} groupId
+     * @returns {Map<K, V>} The removed inner map, or an empty map if the group
+     *                      did not exist.
+     */
+    flush(groupId) {
+        const sub = super.get(groupId);
+        if (!sub) { return new Map(); }
+        super.delete(groupId);
+        return sub;
+    }
+
+    /**
+     * Get an iterator over **keyIds** inside a given group.
+     *
+     * @param {G} groupId  The group identifier.
+     * @returns {IterableIterator<K> | undefined}
+     */
+    keysOf(groupId) {
+        return super.get(groupId)?.keys();
+    }
+
+    /**
+     * Get an iterator over **values** inside a given group.
+     *
+     * @param {G} groupId  The group identifier.
+     * @returns {IterableIterator<V> | undefined}
+     */
+    valuesOf(groupId) {
+        return super.get(groupId)?.values();
+    }
+
+    /**
+     * Get an iterator over `[key, value]` entries inside a given group.
+     *
+     * @param {G} groupId  The group identifier.
+     * @returns {IterableIterator<[K, V]> | undefined}
+     */
+    entriesOf(groupId) {
+        return super.get(groupId)?.entries();
+    }
 }

@@ -5,6 +5,12 @@ const { isBuild } = argv;
 slib(
     isBuild,
     {
-
+        lib:{
+            entries:[
+                "MapMap.js",
+                "MapSet.js",
+                "MapArray.js",
+            ]
+        }
     }
 );
